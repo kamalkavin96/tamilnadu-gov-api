@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.Beneficiary;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.BeneficiaryRepository;
 
@@ -22,7 +23,8 @@ public class BeneficiaryService {
 
     public Beneficiary findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Beneficiary not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Beneficiary", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class BeneficiaryService {
     @Transactional
     public Beneficiary update(Long id, Beneficiary entity) {
         Beneficiary existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("Beneficiary not found with id: " + id);
+            throw new ResourceNotFoundException("Beneficiary", "id", id);
         }
+
         repository.deleteById(id);
     }
 

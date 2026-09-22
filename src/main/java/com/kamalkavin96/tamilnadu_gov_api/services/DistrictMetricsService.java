@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.DistrictMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictMetricsRepository;
 
@@ -22,7 +23,8 @@ public class DistrictMetricsService {
 
     public DistrictMetrics findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("DistrictMetrics not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("DistrictMetrics", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class DistrictMetricsService {
     @Transactional
     public DistrictMetrics update(Long id, DistrictMetrics entity) {
         DistrictMetrics existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("DistrictMetrics not found with id: " + id);
+            throw new ResourceNotFoundException("DistrictMetrics", "id", id);
         }
+
         repository.deleteById(id);
     }
 

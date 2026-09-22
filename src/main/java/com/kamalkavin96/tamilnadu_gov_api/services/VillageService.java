@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.Village;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.VillageRepository;
 
@@ -22,7 +23,8 @@ public class VillageService {
 
     public Village findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Village not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Village", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class VillageService {
     @Transactional
     public Village update(Long id, Village entity) {
         Village existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("Village not found with id: " + id);
+            throw new ResourceNotFoundException("Village", "id", id);
         }
+
         repository.deleteById(id);
     }
 

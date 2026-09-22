@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.StateMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateMetricsRepository;
 
@@ -22,7 +23,8 @@ public class StateMetricsService {
 
     public StateMetrics findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("StateMetrics not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("StateMetrics", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class StateMetricsService {
     @Transactional
     public StateMetrics update(Long id, StateMetrics entity) {
         StateMetrics existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("StateMetrics not found with id: " + id);
+            throw new ResourceNotFoundException("StateMetrics", "id", id);
         }
+
         repository.deleteById(id);
     }
 

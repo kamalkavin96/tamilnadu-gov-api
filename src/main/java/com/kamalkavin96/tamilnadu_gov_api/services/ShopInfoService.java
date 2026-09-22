@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.ShopInfo;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInfoRepository;
 
@@ -22,7 +23,8 @@ public class ShopInfoService {
 
     public ShopInfo findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("ShopInfo not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("ShopInfo", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class ShopInfoService {
     @Transactional
     public ShopInfo update(Long id, ShopInfo entity) {
         ShopInfo existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("ShopInfo not found with id: " + id);
+            throw new ResourceNotFoundException("ShopInfo", "id", id);
         }
+
         repository.deleteById(id);
     }
 

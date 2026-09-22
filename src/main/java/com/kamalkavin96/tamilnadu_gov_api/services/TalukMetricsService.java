@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.TalukMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukMetricsRepository;
 
@@ -22,7 +23,8 @@ public class TalukMetricsService {
 
     public TalukMetrics findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("TalukMetrics not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("TalukMetrics", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class TalukMetricsService {
     @Transactional
     public TalukMetrics update(Long id, TalukMetrics entity) {
         TalukMetrics existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("TalukMetrics not found with id: " + id);
+            throw new ResourceNotFoundException("TalukMetrics", "id", id);
         }
+
         repository.deleteById(id);
     }
 

@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.State;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateRepository;
 
@@ -22,7 +23,8 @@ public class StateService {
 
     public State findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("State not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("State", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class StateService {
     @Transactional
     public State update(Long id, State entity) {
         State existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("State not found with id: " + id);
+            throw new ResourceNotFoundException("State", "id", id);
         }
+
         repository.deleteById(id);
     }
 

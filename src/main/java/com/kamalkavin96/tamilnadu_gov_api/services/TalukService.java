@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.Taluk;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukRepository;
 
@@ -22,7 +23,8 @@ public class TalukService {
 
     public Taluk findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Taluk not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Taluk", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class TalukService {
     @Transactional
     public Taluk update(Long id, Taluk entity) {
         Taluk existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("Taluk not found with id: " + id);
+            throw new ResourceNotFoundException("Taluk", "id", id);
         }
+
         repository.deleteById(id);
     }
 

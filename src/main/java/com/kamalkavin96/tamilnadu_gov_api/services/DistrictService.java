@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.District;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictRepository;
 
@@ -22,7 +23,8 @@ public class DistrictService {
 
     public District findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("District not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("District", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class DistrictService {
     @Transactional
     public District update(Long id, District entity) {
         District existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("District not found with id: " + id);
+            throw new ResourceNotFoundException("District", "id", id);
         }
+
         repository.deleteById(id);
     }
 

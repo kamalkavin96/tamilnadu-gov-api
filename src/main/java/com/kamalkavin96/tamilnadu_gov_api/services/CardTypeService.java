@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import java.util.List;
 
+import com.kamalkavin96.tamilnadu_gov_api.exceptions.ResourceNotFoundException;
 import com.kamalkavin96.tamilnadu_gov_api.models.CardType;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.CardTypeRepository;
 
@@ -22,7 +23,8 @@ public class CardTypeService {
 
     public CardType findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("CardType not found with id: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("CardType", "id", id));
     }
 
     @Transactional
@@ -33,15 +35,18 @@ public class CardTypeService {
     @Transactional
     public CardType update(Long id, CardType entity) {
         CardType existing = findById(id);
+
         entity.setId(existing.getId());
+
         return repository.save(entity);
     }
 
     @Transactional
     public void deleteById(Long id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("CardType not found with id: " + id);
+            throw new ResourceNotFoundException("CardType", "id", id);
         }
+
         repository.deleteById(id);
     }
 
