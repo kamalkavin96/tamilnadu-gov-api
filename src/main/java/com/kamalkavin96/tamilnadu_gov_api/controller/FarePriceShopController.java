@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.controller;
 
 import java.io.IOException;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +15,9 @@ import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@RestController
-@RequestMapping("/api/v1/fare-price-shop")
+// @Profile("api")
+// @RestController
+// @RequestMapping("/api/v1/fare-price-shop")
 @RequiredArgsConstructor
 public class FarePriceShopController {
 

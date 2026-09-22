@@ -41,7 +41,7 @@ public class PDSReportClient {
         String requestBody = String.format("""
                 {
                     "districtId": %d,
-                    "districtName": "%s"
+                    "districtName": %s
                 }
                 """, districtId, districtName);
 
