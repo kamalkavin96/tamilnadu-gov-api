@@ -74,7 +74,11 @@ public class HttpHeadersConfiguration {
 
         log.info("Response Status: {}", response.statusCode());
 
-        return response.body();
+        String responseBody = response.body();
+
+        log.info("Response Body: {}",responseBody);
+
+        return responseBody;
     }
 
 }

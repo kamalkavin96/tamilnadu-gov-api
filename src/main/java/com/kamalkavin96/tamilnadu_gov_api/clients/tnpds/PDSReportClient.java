@@ -41,7 +41,7 @@ public class PDSReportClient {
         String requestBody = String.format("""
                 {
                     "districtId": %d,
-                    "districtName": %s
+                    "districtName": "%s"
                 }
                 """, districtId, districtName);
 
@@ -92,10 +92,10 @@ public class PDSReportClient {
      * Get beneficiaries.
      */
     public String getBenefs(
-            Long page,
-            Long size,
+            Integer page,
+            Integer size,
             Long sfpsCode,
-            Long cardTypeGroupId
+            Integer cardTypeGroupId
     ) throws IOException, InterruptedException {
 
         String requestBody = String.format("""
@@ -141,8 +141,8 @@ public class PDSReportClient {
      * Get FPS bill list.
      */
     public String getBillList(
-            Long page,
-            Long size,
+            Integer page,
+            Integer size,
             Long fpsId
     ) throws IOException, InterruptedException {
 
@@ -161,7 +161,7 @@ public class PDSReportClient {
         );
 
         return headersConfiguration.makePostRequest(
-                "/portal/getBillList",
+                "/report/getBillList",
                 requestBody
         );
     }
