@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -25,14 +27,19 @@ public class Shop {
     @Column(name = "source_id", unique = true, nullable = false, length = 50)
     private String sourceId;
 
-    @Column(name = "name", nullable = false, length = 150)
-    private String name;
+    @Column(name = "shop_code", nullable = false, length = 150, unique = true)
+    private String shopCode;
 
-    // FIXED: Shop links directly to Village now, matching Village's mappedBy attribute
+    @Column(name = "shop_name", nullable = false, length = 150)
+    private String shopname;
+    
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "village_id", nullable = false)
+    @JoinColumn(name = "taluk_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private Village village;
+    private Taluk taluk;
+    
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

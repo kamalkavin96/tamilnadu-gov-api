@@ -1,10 +1,15 @@
 package com.kamalkavin96.tamilnadu_gov_api.models;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -32,6 +37,15 @@ public class Taluk {
     @JoinColumn(name = "district_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private District district;
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @OneToMany(
+        mappedBy = "taluk",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY
+    )
+    private List<Shop> shops = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

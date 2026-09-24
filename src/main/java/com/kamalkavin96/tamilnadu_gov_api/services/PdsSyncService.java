@@ -2,6 +2,7 @@ package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateMetricsRepository;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -16,19 +17,26 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
 import com.kamalkavin96.tamilnadu_gov_api.models.District;
 import com.kamalkavin96.tamilnadu_gov_api.models.DistrictMetrics;
+import com.kamalkavin96.tamilnadu_gov_api.models.Shop;
+import com.kamalkavin96.tamilnadu_gov_api.models.ShopIncharge;
+import com.kamalkavin96.tamilnadu_gov_api.models.ShopInfo;
 import com.kamalkavin96.tamilnadu_gov_api.models.State;
 import com.kamalkavin96.tamilnadu_gov_api.models.StateMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Taluk;
 import com.kamalkavin96.tamilnadu_gov_api.models.TalukMetrics;
+import com.kamalkavin96.tamilnadu_gov_api.models.Village;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.BeneficiaryRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictRepository;
+import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInchargeRepository;
+import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInfoRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.VillageRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,6 +57,8 @@ public class PdsSyncService {
         private final BeneficiaryRepository beneficiaryRepository;
         private final DistrictMetricsRepository districtMetricsRepository;
         private final TalukMetricsRepository talukMetricsRepository;
+        private final ShopInfoRepository shopInfoRepository;
+        private final ShopInchargeRepository shopInchargeRepository;
 
         private final StateService stateService;
         private final DistrictService districtService;
@@ -663,7 +673,8 @@ public class PdsSyncService {
 
                         log.info("Syncing taluks for district: {} ({})", districtName, districtSourceId);
 
-                        String districtReportResponse = pdsReportClient.getDistrictReport(Long.valueOf(districtSourceId), districtName);
+                        String districtReportResponse = pdsReportClient
+                                        .getDistrictReport(Long.valueOf(districtSourceId), districtName);
                         JsonNode districtReportObject = objectMapper.readTree(districtReportResponse);
                         JsonNode talukList = districtReportObject.path("stateLevelStatsReportDtoList");
 
@@ -685,7 +696,8 @@ public class PdsSyncService {
 
                                 taluk = talukRepository.save(taluk);
 
-                                TalukMetrics metrics = talukMetricsRepository.findByTalukId(taluk.getId()).orElseGet(TalukMetrics::new);
+                                TalukMetrics metrics = talukMetricsRepository.findByTalukId(taluk.getId())
+                                                .orElseGet(TalukMetrics::new);
 
                                 metrics.setTaluk(taluk);
                                 metrics.setFairPriceShopCount(talukNode.path("numberOfFps").asLong());
@@ -695,14 +707,624 @@ public class PdsSyncService {
                                 metrics.setMobileRegCount(talukNode.path("noOfMobileNumberRegistered").asLong());
                                 talukMetricsRepository.save(metrics);
 
-                                log.info("Taluk synced: {} ({}) for district: {}", talukName, talukSourceId, districtName);
+                                log.info("Taluk synced: {} ({}) for district: {}", talukName, talukSourceId,
+                                                districtName);
                         }
                 }
         }
 
-        // syncDistricts();
-        // syncTaluks();
-        // syncVillages();
-        // syncShops();
+        public void syncShops() throws IOException, InterruptedException {
+
+                final String stateSourceId = "1";
+                State state = stateRepository.findBySourceId(stateSourceId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "State not found for sourceId: " + stateSourceId));
+
+                List<District> districts = districtRepository.findByStateId(state.getId());
+
+                if (districts.isEmpty()) {
+                        log.warn("No districts found for state: {}", state.getName());
+                        return;
+                }
+
+                int totalShops = 0;
+                int createdShops = 0;
+                int updatedShops = 0;
+                int skippedShops = 0;
+
+                for (District district : districts) {
+
+                        log.info("Processing district. id={}, sourceId={}, name={}",
+                                        district.getId(), district.getSourceId(), district.getName());
+                        List<Taluk> taluks = talukRepository.findByDistrictId(district.getId());
+
+                        if (taluks.isEmpty()) {
+                                log.warn("No taluks found for district: {}",
+                                                district.getName());
+                                continue;
+                        }
+
+                        for (Taluk taluk : taluks) {
+
+                                String talukSourceId = taluk.getSourceId();
+                                String talukName = taluk.getName();
+
+                                log.info("Fetching shops for taluk. talukId={}, talukName={}",
+                                                talukSourceId, talukName);
+
+                                String talukResponse = pdsReportClient.getTalukReport(Long.valueOf(talukSourceId));
+                                JsonNode talukObject = objectMapper.readTree(talukResponse);
+                                JsonNode shopList = talukObject.path("stateLevelStatsReportDtoList");
+
+                                if (!shopList.isArray()) {
+                                        log.warn("No shop list found for taluk. talukId={}, talukName={}",
+                                                        talukSourceId, talukName);
+                                        continue;
+                                }
+
+                                for (JsonNode shopNode : shopList) {
+
+                                        totalShops++;
+                                        String shopSourceId = shopNode.path("fpsId").asText(null);
+                                        String shopCode = shopNode.path("fpsCode").asText(null);
+                                        String shopName = shopNode.path("fpsName").asText(null);
+
+                                        if (shopSourceId == null || shopSourceId.isBlank()
+                                                        || "null".equalsIgnoreCase(shopSourceId)) {
+
+                                                skippedShops++;
+
+                                                log.warn("Skipping shop because fpsId is missing. talukId={}, talukName={}",
+                                                                talukSourceId, talukName);
+
+                                                continue;
+                                        }
+
+                                        if (shopCode == null || shopCode.isBlank()
+                                                        || "null".equalsIgnoreCase(shopCode)) {
+
+                                                skippedShops++;
+                                                log.warn("Skipping shop because fpsCode is missing. fpsId={}, talukId={}, talukName={}",
+                                                                shopSourceId, talukSourceId, talukName);
+                                                continue;
+                                        }
+
+                                        if (shopName == null || shopName.isBlank()
+                                                        || "null".equalsIgnoreCase(shopName)) {
+                                                skippedShops++;
+                                                log.warn("Skipping shop because fpsName is missing. fpsId={}, fpsCode={}, taluk={}",
+                                                                shopSourceId, shopCode, talukName);
+                                                continue;
+                                        }
+
+                                        Optional<Shop> existingShop = shopRepository.findBySourceId(shopSourceId);
+                                        Shop shop;
+
+                                        if (existingShop.isPresent()) {
+
+                                                shop = existingShop.get();
+                                                updatedShops++;
+                                                log.debug("Existing shop found. id={}, sourceId={}",
+                                                                shop.getId(), shop.getSourceId());
+
+                                        } else {
+
+                                                shop = new Shop();
+                                                createdShops++;
+                                                log.debug("Creating new shop. sourceId={}, shopCode={}",
+                                                                shopSourceId, shopCode);
+                                        }
+
+                                        shop.setSourceId(shopSourceId);
+                                        shop.setShopCode(shopCode);
+                                        shop.setShopname(shopName);
+                                        shop.setTaluk(taluk);
+                                        Shop savedShop = shopRepository.save(shop);
+
+                                        log.info("Shop synchronized. id={}, sourceId={}, shopCode={}, shopName={}, talukId={}, talukName={}",
+                                                        savedShop.getId(), savedShop.getSourceId(),
+                                                        savedShop.getShopCode(),
+                                                        savedShop.getShopname(), taluk.getId(), taluk.getName());
+                                }
+                        }
+                }
+
+                log.info("============================================================");
+                log.info("Shop synchronization completed");
+                log.info("State      : {} ({})", state.getName(), state.getId());
+                log.info("Total      : {}", totalShops);
+                log.info("Created    : {}", createdShops);
+                log.info("Updated    : {}", updatedShops);
+                log.info("Skipped    : {}", skippedShops);
+                log.info("============================================================");
+        }
+
+        public void syncShopInfo() throws IOException, InterruptedException {
+
+                log.info("============================================================");
+                log.info("Starting ShopInfo synchronization");
+                log.info("============================================================");
+
+                List<Shop> shops = shopRepository.findAll();
+
+                if (shops.isEmpty()) {
+                        log.warn("No shops found. Please run syncShops() first.");
+                        return;
+                }
+
+                int totalShops = shops.size();
+                int processedShops = 0;
+                int skippedShops = 0;
+
+                int createdVillages = 0;
+                int updatedVillages = 0;
+
+                int createdShopInfos = 0;
+                int updatedShopInfos = 0;
+
+                int createdShopIncharges = 0;
+                int updatedShopIncharges = 0;
+
+                for (Shop shop : shops) {
+
+                        String shopSourceId = shop.getSourceId();
+                        String shopCode = shop.getShopCode();
+
+                        if (shopSourceId == null || shopSourceId.isBlank()) {
+                                skippedShops++;
+
+                                log.warn(
+                                                "Skipping shop. sourceId is missing. shopId={}",
+                                                shop.getId());
+
+                                continue;
+                        }
+
+                        if (shopCode == null || shopCode.isBlank()) {
+                                skippedShops++;
+
+                                log.warn(
+                                                "Skipping shop. shopCode is missing. shopId={}, sourceId={}",
+                                                shop.getId(),
+                                                shopSourceId);
+
+                                continue;
+                        }
+
+                        Long fpsId;
+
+                        try {
+                                fpsId = Long.valueOf(shopSourceId);
+                        } catch (NumberFormatException e) {
+
+                                skippedShops++;
+
+                                log.warn(
+                                                "Invalid FPS ID. shopId={}, sourceId={}",
+                                                shop.getId(),
+                                                shopSourceId);
+
+                                continue;
+                        }
+
+                        log.info(
+                                        "Processing shop. shopId={}, fpsId={}, shopCode={}, shopName={}",
+                                        shop.getId(),
+                                        fpsId,
+                                        shopCode,
+                                        shop.getShopname());
+
+                        /*
+                         * ============================================================
+                         * 1. GET FPS LOCATION DETAILS
+                         * ============================================================
+                         */
+
+                        String response = pdsReportClient.getFpsLocationDetails(
+                                        shopCode,
+                                        fpsId);
+
+                        JsonNode shopObject = objectMapper.readTree(response);
+
+                        JsonNode fpsStoreDto = shopObject.path("fpsStoreDto");
+
+                        if (fpsStoreDto.isMissingNode()
+                                        || fpsStoreDto.isNull()) {
+
+                                skippedShops++;
+
+                                log.warn(
+                                                "fpsStoreDto not found. shopId={}, fpsId={}, shopCode={}",
+                                                shop.getId(),
+                                                fpsId,
+                                                shopCode);
+
+                                continue;
+                        }
+
+                        /*
+                         * ============================================================
+                         * 2. SHOP INCHARGE
+                         * ============================================================
+                         *
+                         * These fields come from the main shop response:
+                         *
+                         * fpsIncharge
+                         * fpsContactNo
+                         */
+
+                        String fpsIncharge = getTextValue(fpsStoreDto, "contactPerson");
+
+                        String fpsContactNo = getTextValue(fpsStoreDto, "phoneNumber");
+
+                        ShopIncharge shopIncharge = null;
+
+                        if (fpsContactNo != null && !fpsContactNo.isBlank()) {
+
+                                Optional<ShopIncharge> existingIncharge = shopInchargeRepository
+                                                .findByPhoneNumber(fpsContactNo);
+
+                                boolean inchargeExists = existingIncharge.isPresent();
+
+                                if (inchargeExists) {
+
+                                        shopIncharge = existingIncharge.get();
+
+                                } else {
+
+                                        shopIncharge = new ShopIncharge();
+                                }
+
+                                /*
+                                 * Name is mandatory in ShopIncharge.
+                                 */
+                                if (fpsIncharge != null
+                                                && !fpsIncharge.isBlank()) {
+
+                                        shopIncharge.setName(fpsIncharge);
+
+                                } else if (!inchargeExists) {
+
+                                        shopIncharge.setName("Unknown");
+                                }
+
+                                shopIncharge.setPhoneNumber(fpsContactNo);
+
+                                ShopIncharge savedShopIncharge = shopInchargeRepository.save(shopIncharge);
+
+                                if (inchargeExists) {
+                                        updatedShopIncharges++;
+                                } else {
+                                        createdShopIncharges++;
+                                }
+
+                                shopIncharge = savedShopIncharge;
+
+                                log.info(
+                                                "ShopIncharge synchronized. id={}, name={}, phone={}",
+                                                shopIncharge.getId(),
+                                                shopIncharge.getName(),
+                                                shopIncharge.getPhoneNumber());
+                        } else {
+
+                                log.warn(
+                                                "ShopIncharge not available. shopId={}, fpsId={}, shopCode={}",
+                                                shop.getId(),
+                                                fpsId,
+                                                shopCode);
+                        }
+
+                        /*
+                         * ============================================================
+                         * 3. VILLAGE
+                         * ============================================================
+                         */
+
+                        Long villageSourceId = getLongValue(fpsStoreDto, "villageId");
+
+                        String villageName = getTextValue(fpsStoreDto, "village");
+
+                        if (villageSourceId == null) {
+
+                                skippedShops++;
+
+                                log.warn(
+                                                "Village ID missing. shopId={}, fpsId={}, village={}",
+                                                shop.getId(),
+                                                fpsId,
+                                                villageName);
+
+                                continue;
+                        }
+
+                        if (villageName == null || villageName.isBlank()) {
+
+                                skippedShops++;
+
+                                log.warn(
+                                                "Village name missing. villageSourceId={}, shopId={}",
+                                                villageSourceId,
+                                                shop.getId());
+
+                                continue;
+                        }
+
+                        /*
+                         * Find existing village or create new one.
+                         */
+                        Optional<Village> existingVillage = villageRepository.findBySourceId(
+                                        villageSourceId);
+
+                        Village village;
+                        boolean villageExists;
+
+                        if (existingVillage.isPresent()) {
+
+                                village = existingVillage.get();
+                                villageExists = true;
+
+                        } else {
+
+                                village = new Village();
+                                villageExists = false;
+                        }
+
+                        village.setSourceId(villageSourceId);
+                        village.setName(villageName);
+
+                        /*
+                         * Village belongs to the same Taluk as Shop.
+                         */
+                        village.setTaluk(shop.getTaluk());
+
+                        Village savedVillage = villageRepository.save(village);
+
+                        if (villageExists) {
+                                updatedVillages++;
+                        } else {
+                                createdVillages++;
+                        }
+
+                        /*
+                         * ============================================================
+                         * 4. SHOP INFO
+                         * ============================================================
+                         */
+
+                        Optional<ShopInfo> existingShopInfo = shopInfoRepository.findByShopId(
+                                        shop.getId());
+
+                        ShopInfo shopInfo;
+                        boolean shopInfoExists;
+
+                        if (existingShopInfo.isPresent()) {
+
+                                shopInfo = existingShopInfo.get();
+                                shopInfoExists = true;
+
+                        } else {
+
+                                shopInfo = new ShopInfo();
+                                shopInfoExists = false;
+                        }
+
+                        /*
+                         * Shop relationship
+                         */
+                        shopInfo.setShop(shop);
+
+                        /*
+                         * Village relationship
+                         */
+                        shopInfo.setVillage(savedVillage);
+
+                        /*
+                         * Shop Incharge relationship
+                         */
+                        if (shopIncharge != null) {
+                                shopInfo.setShopIncharge(shopIncharge);
+                        }
+
+                        /*
+                         * ============================================================
+                         * 5. ADDRESS
+                         * ============================================================
+                         */
+
+                        String addressLine1 = getTextValue(
+                                        fpsStoreDto,
+                                        "addressLine1");
+
+                        String addressLine2 = getTextValue(
+                                        fpsStoreDto,
+                                        "addressLine2");
+
+                        String addressLine3 = getTextValue(
+                                        fpsStoreDto,
+                                        "addressLine3");
+
+                        Integer pinCode = getIntegerValue(
+                                        fpsStoreDto,
+                                        "pincode");
+
+                        /*
+                         * Fallback if pincode is returned in addressLine2.
+                         */
+                        if (pinCode == null && addressLine2 != null) {
+                                pinCode = parseInteger(addressLine2);
+                        }
+
+                        /*
+                         * ShopInfo has nullable=false for these fields.
+                         */
+                        if (addressLine1 == null
+                                        || addressLine1.isBlank()) {
+
+                                addressLine1 = "Unknown";
+                        }
+
+                        if (pinCode == null) {
+                                pinCode = 0;
+                        }
+
+                        shopInfo.setAddressLine1(addressLine1);
+                        shopInfo.setAddressLine2(addressLine2);
+                        shopInfo.setAddressLine3(addressLine3);
+                        shopInfo.setPinCode(pinCode);
+
+                        /*
+                         * ============================================================
+                         * 6. LATITUDE / LONGITUDE
+                         * ============================================================
+                         */
+
+                        BigDecimal latitude = getBigDecimalValue(
+                                        fpsStoreDto,
+                                        "latitude");
+
+                        BigDecimal longitude = getBigDecimalValue(
+                                        fpsStoreDto,
+                                        "longitude");
+
+                        shopInfo.setLatitude(latitude);
+                        shopInfo.setLongitude(longitude);
+
+                        /*
+                         * ============================================================
+                         * 7. SAVE SHOP INFO
+                         * ============================================================
+                         */
+
+                        ShopInfo savedShopInfo = shopInfoRepository.save(shopInfo);
+
+                        if (shopInfoExists) {
+                                updatedShopInfos++;
+                        } else {
+                                createdShopInfos++;
+                        }
+
+                        processedShops++;
+
+                        log.info(
+                                        "ShopInfo synchronized. " +
+                                                        "shopInfoId={}, shopId={}, villageId={}, inchargeId={}",
+                                        savedShopInfo.getId(),
+                                        shop.getId(),
+                                        savedVillage.getId(),
+                                        shopIncharge != null
+                                                        ? shopIncharge.getId()
+                                                        : null);
+                }
+
+                log.info("============================================================");
+                log.info("ShopInfo synchronization completed");
+                log.info("Total shops        : {}", totalShops);
+                log.info("Processed          : {}", processedShops);
+                log.info("Skipped            : {}", skippedShops);
+                log.info("Villages created   : {}", createdVillages);
+                log.info("Villages updated   : {}", updatedVillages);
+                log.info("ShopInfo created   : {}", createdShopInfos);
+                log.info("ShopInfo updated   : {}", updatedShopInfos);
+                log.info("Incharge created   : {}", createdShopIncharges);
+                log.info("Incharge updated   : {}", updatedShopIncharges);
+                log.info("============================================================");
+        }
+
+
+
+
+
+
+
+
+        
+        private BigDecimal getBigDecimalValue(
+                        JsonNode node,
+                        String fieldName) {
+
+                String value = getTextValue(node, fieldName);
+
+                if (value == null) {
+                        return null;
+                }
+
+                try {
+                        return new BigDecimal(value);
+                } catch (NumberFormatException e) {
+                        return null;
+                }
+        }
+
+        private Integer parseInteger(String value) {
+
+                if (value == null || value.isBlank()) {
+                        return null;
+                }
+
+                try {
+                        return Integer.valueOf(value.trim());
+                } catch (NumberFormatException e) {
+                        return null;
+                }
+        }
+
+        private Integer getIntegerValue(JsonNode node, String fieldName) {
+
+                JsonNode value = node.path(fieldName);
+
+                if (value.isMissingNode() || value.isNull()) {
+                        return null;
+                }
+
+                if (value.isNumber()) {
+                        return value.asInt();
+                }
+
+                String text = value.asText();
+
+                if (text == null || text.isBlank() || "null".equalsIgnoreCase(text)) {
+                        return null;
+                }
+
+                try {
+                        return Integer.valueOf(text.trim());
+                } catch (NumberFormatException e) {
+                        return null;
+                }
+        }
+
+        private String getTextValue(JsonNode node, String fieldName) {
+
+                JsonNode value = node.path(fieldName);
+                if (value.isMissingNode() || value.isNull()) {
+                        return null;
+                }
+                String text = value.asText();
+                if (text == null || text.isBlank() || "null".equalsIgnoreCase(text)) {
+                        return null;
+                }
+                return text.trim();
+        }
+
+        private Long getLongValue(JsonNode node, String fieldName) {
+
+                JsonNode value = node.path(fieldName);
+                if (value.isMissingNode() || value.isNull()) {
+                        return null;
+                }
+                if (value.isNumber()) {
+                        return value.asLong();
+                }
+                String text = value.asText();
+                if (text == null || text.isBlank() || "null".equalsIgnoreCase(text)) {
+                        return null;
+                }
+
+                try {
+                        return Long.valueOf(text.trim());
+                } catch (NumberFormatException e) {
+                        return null;
+                }
+        }
 
 }

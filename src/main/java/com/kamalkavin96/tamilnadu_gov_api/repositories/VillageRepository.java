@@ -6,7 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.kamalkavin96.tamilnadu_gov_api.models.Village;
 
 public interface VillageRepository extends JpaRepository<Village, Long> {
-    Optional<Village> findBySourceId(String sourceId);
+
+    Optional<Village> findBySourceId(Long sourceId);
     List<Village> findByTalukId(Long talukId);
-    boolean existsBySourceId(String sourceId);
+    boolean existsBySourceId(Long sourceId);
 }

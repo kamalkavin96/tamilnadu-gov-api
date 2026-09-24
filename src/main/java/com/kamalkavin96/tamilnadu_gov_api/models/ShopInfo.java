@@ -15,11 +15,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-@Data 
-@AllArgsConstructor 
-@NoArgsConstructor
+
 @Entity
 @Table(name = "shop_info")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class ShopInfo {
 
     @Id
@@ -29,7 +30,12 @@ public class ShopInfo {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "shop_id", referencedColumnName = "id", unique = true, nullable = false)
+    @JoinColumn(
+        name = "shop_id",
+        referencedColumnName = "id",
+        unique = true,
+        nullable = false
+    )
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Shop shop;
 
@@ -39,12 +45,18 @@ public class ShopInfo {
     @JoinColumn(name = "shop_incharge_id")
     private ShopIncharge shopIncharge;
 
-    // REPLACED: agencyName string is now a formal relationship field
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agency_id")
     private Agency agency;
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "village_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Village village;
 
     @Column(name = "address_line_1", nullable = false, length = 255)
     private String addressLine1;
@@ -83,5 +95,4 @@ public class ShopInfo {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
 }
