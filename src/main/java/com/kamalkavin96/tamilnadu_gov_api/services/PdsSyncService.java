@@ -4,7 +4,9 @@ import com.kamalkavin96.tamilnadu_gov_api.repositories.StateMetricsRepository;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,21 +17,25 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
+import com.kamalkavin96.tamilnadu_gov_api.models.Agency;
 import com.kamalkavin96.tamilnadu_gov_api.models.District;
 import com.kamalkavin96.tamilnadu_gov_api.models.DistrictMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Shop;
 import com.kamalkavin96.tamilnadu_gov_api.models.ShopIncharge;
 import com.kamalkavin96.tamilnadu_gov_api.models.ShopInfo;
+import com.kamalkavin96.tamilnadu_gov_api.models.ShopMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.State;
 import com.kamalkavin96.tamilnadu_gov_api.models.StateMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Taluk;
 import com.kamalkavin96.tamilnadu_gov_api.models.TalukMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Village;
+import com.kamalkavin96.tamilnadu_gov_api.repositories.AgencyRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.BeneficiaryRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInchargeRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInfoRepository;
+import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukMetricsRepository;
@@ -59,6 +65,8 @@ public class PdsSyncService {
         private final TalukMetricsRepository talukMetricsRepository;
         private final ShopInfoRepository shopInfoRepository;
         private final ShopInchargeRepository shopInchargeRepository;
+        private final ShopMetricsRepository shopMetricsRepository;
+        private final AgencyRepository agencyRepository;
 
         private final StateService stateService;
         private final DistrictService districtService;
@@ -928,6 +936,33 @@ public class PdsSyncService {
 
                         JsonNode fpsStoreDto = shopObject.path("fpsStoreDto");
 
+                        // =====================================================
+                        // AGENCY
+                        // =====================================================
+
+                        String agencyName = getTextValue(fpsStoreDto, "agencyName");
+
+                        Agency agency = null;
+
+                        if (agencyName != null && !agencyName.isBlank()) {
+
+                                if (agencyRepository.existsByName(agencyName)) {
+
+                                        agency = agencyRepository
+                                                        .findByName(agencyName)
+                                                        .orElseThrow(() -> new IllegalStateException(
+                                                                        "Agency exists but could not be found: "
+                                                                                        + agencyName));
+
+                                } else {
+
+                                        agency = new Agency();
+                                        agency.setName(agencyName);
+
+                                        agency = agencyRepository.save(agency);
+                                }
+                        }
+
                         if (fpsStoreDto.isMissingNode()
                                         || fpsStoreDto.isNull()) {
 
@@ -1118,6 +1153,8 @@ public class PdsSyncService {
                          */
                         shopInfo.setVillage(savedVillage);
 
+                        shopInfo.setAgency(agency);
+
                         /*
                          * Shop Incharge relationship
                          */
@@ -1197,6 +1234,38 @@ public class PdsSyncService {
 
                         ShopInfo savedShopInfo = shopInfoRepository.save(shopInfo);
 
+                        // =====================================================
+                        // SHOP METRICS
+                        // =====================================================
+
+                        ShopMetrics shopMetrics = shopMetricsRepository
+                                        .findByShopId(shop.getId())
+                                        .orElseGet(ShopMetrics::new);
+
+                        shopMetrics.setShop(shop);
+
+                        shopMetrics.setFamilyCardCount(
+                                        getLongValue(shopObject, "numberOfCards") != null
+                                                        ? getLongValue(shopObject, "numberOfCards")
+                                                        : 0L);
+
+                        shopMetrics.setBeneficiariesCount(
+                                        getLongValue(shopObject, "numberOfBeneficiaries") != null
+                                                        ? getLongValue(shopObject, "numberOfBeneficiaries")
+                                                        : 0L);
+
+                        shopMetrics.setAadharRegCount(
+                                        getLongValue(shopObject, "noOfAadhaarNoRegistered") != null
+                                                        ? getLongValue(shopObject, "noOfAadhaarNoRegistered")
+                                                        : 0L);
+
+                        shopMetrics.setMobileRegCount(
+                                        getLongValue(shopObject, "noOfMobileNoRegistered") != null
+                                                        ? getLongValue(shopObject, "noOfMobileNoRegistered")
+                                                        : 0L);
+
+                        shopMetricsRepository.save(shopMetrics);
+
                         if (shopInfoExists) {
                                 updatedShopInfos++;
                         } else {
@@ -1230,14 +1299,20 @@ public class PdsSyncService {
                 log.info("============================================================");
         }
 
+        private LocalTime parseLocalTime(String value) {
 
+                if (value == null || value.isBlank()) {
+                        return null;
+                }
 
+                try {
+                        return LocalTime.parse(value.trim());
+                } catch (DateTimeParseException e) {
+                        log.warn("Unable to parse time: {}", value);
+                        return null;
+                }
+        }
 
-
-
-
-
-        
         private BigDecimal getBigDecimalValue(
                         JsonNode node,
                         String fieldName) {
