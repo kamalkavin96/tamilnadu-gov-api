@@ -24,7 +24,11 @@ public class PdsSyncRunner implements CommandLineRunner {
         log.info("Starting Tamil Nadu PDS data synchronization");
         log.info(LOG_SEPARATOR);
 
-        pdsSyncService.syncStates();
+        // pdsSyncService.syncStates();
+
+        // pdsSyncService.syncDistricts();
+
+        pdsSyncService.syncTaluks();
 
         log.info(LOG_SEPARATOR);
         log.info("Tamil Nadu PDS synchronization completed");
