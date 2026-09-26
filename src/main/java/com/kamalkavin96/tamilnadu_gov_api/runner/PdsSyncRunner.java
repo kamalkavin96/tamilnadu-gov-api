@@ -3,7 +3,9 @@ package com.kamalkavin96.tamilnadu_gov_api.runner;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
 import com.kamalkavin96.tamilnadu_gov_api.services.PdsSyncService;
+import com.kamalkavin96.tamilnadu_gov_api.services.StateService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,8 @@ public class PdsSyncRunner implements CommandLineRunner {
     private static final String LOG_SEPARATOR = "==============================================";
 
     private final PdsSyncService pdsSyncService;
+
+    private final StateService stateService;
 
     @Override
     public void run(String... args) throws Exception {
@@ -30,7 +34,18 @@ public class PdsSyncRunner implements CommandLineRunner {
 
         // pdsSyncService.syncShops();
 
-        pdsSyncService.syncShopInfo();
+        // pdsSyncService.syncShopInfo();
+
+        // pdsSyncService.syncBeneficiry();
+
+
+        // stateService.create(1L, "Tamilnadu");
+
+
+        pdsSyncService.testMethod();
+
+
+
 
         log.info(LOG_SEPARATOR);
         log.info("Tamil Nadu PDS synchronization completed");

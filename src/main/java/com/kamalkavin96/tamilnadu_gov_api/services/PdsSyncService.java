@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
 import com.kamalkavin96.tamilnadu_gov_api.models.Agency;
+import com.kamalkavin96.tamilnadu_gov_api.models.Beneficiary;
+import com.kamalkavin96.tamilnadu_gov_api.models.CardType;
 import com.kamalkavin96.tamilnadu_gov_api.models.District;
 import com.kamalkavin96.tamilnadu_gov_api.models.DistrictMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Shop;
@@ -416,7 +419,7 @@ public class PdsSyncService {
                                 sourceId,
                                 stateName);
 
-                Optional<State> existingState = stateRepository.findBySourceId(sourceId);
+                Optional<State> existingState = stateRepository.findBySourceId(Long.parseLong(sourceId));
                 State state;
 
                 if (existingState.isPresent()) {
@@ -430,7 +433,7 @@ public class PdsSyncService {
                 } else {
 
                         state = new State();
-                        state.setSourceId(sourceId);
+                        state.setSourceId(Long.parseLong(sourceId));
                         state.setName(stateName);
                         state.setCreatedAt(now);
                         log.info(
@@ -439,7 +442,7 @@ public class PdsSyncService {
                                         stateName);
                 }
 
-                state.setSourceId(sourceId);
+                state.setSourceId(Long.parseLong(sourceId));
                 state.setName(stateName);
                 state.setUpdatedAt(now);
 
@@ -536,7 +539,7 @@ public class PdsSyncService {
 
                 log.info("Starting district synchronization. stateSourceId={}", stateSourceId);
 
-                State state = stateRepository.findBySourceId(stateSourceId)
+                State state = stateRepository.findBySourceId(Long.parseLong(stateSourceId))
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "State not found for sourceId=" + stateSourceId));
 
@@ -664,7 +667,7 @@ public class PdsSyncService {
 
                 final String stateSourceId = "1";
 
-                State state = stateRepository.findBySourceId(stateSourceId)
+                State state = stateRepository.findBySourceId(Long.parseLong(stateSourceId))
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "State not found for sourceId: " + stateSourceId));
 
@@ -724,7 +727,7 @@ public class PdsSyncService {
         public void syncShops() throws IOException, InterruptedException {
 
                 final String stateSourceId = "1";
-                State state = stateRepository.findBySourceId(stateSourceId)
+                State state = stateRepository.findBySourceId(Long.parseLong(stateSourceId))
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "State not found for sourceId: " + stateSourceId));
 
@@ -1299,6 +1302,313 @@ public class PdsSyncService {
                 log.info("============================================================");
         }
 
+        public void syncBeneficiry() {
+
+                log.info("============================================================");
+                log.info("Starting Beneficiary synchronization");
+                log.info("============================================================");
+
+                List<Shop> shops = shopRepository.findAll();
+
+                if (shops.isEmpty()) {
+                        log.warn("No shops found. Please run syncShops() first.");
+                        return;
+                }
+
+                int totalShops = shops.size();
+                int processedShops = 0;
+                int skippedShops = 0;
+
+                int createdBeneficiaries = 0;
+                int updatedBeneficiaries = 0;
+
+                for (Shop shop : shops) {
+
+                        String shopSourceId = shop.getSourceId();
+
+                        if (shopSourceId == null || shopSourceId.isBlank()) {
+                                skippedShops++;
+                                log.warn("Skipping shop because sourceId is missing. shopId={}", shop.getId());
+                                continue;
+                        }
+
+                        Long shopId;
+                        try {
+                                shopId = Long.valueOf(shopSourceId);
+                        } catch (NumberFormatException e) {
+                                skippedShops++;
+                                log.warn("Invalid FPS ID. shopId={}, sourceId={}", shop.getId(), shopSourceId);
+                                continue;
+                        }
+
+                        log.info("Processing beneficiaries for shop. shopId={}, fpsId={}, shopCode={}",
+                                        shop.getId(), shopId, shop.getShopCode());
+
+                        try {
+
+                                // =====================================================
+                                // 1. GET CARD COUNTS
+                                // =====================================================
+
+                                String cardCountResponse = pdsReportClient.getCardCounts(shopId, "english");
+                                JsonNode cardCountObject = objectMapper.readTree(cardCountResponse);
+                                JsonNode content = cardCountObject.path("content");
+
+                                if (!content.isArray() || content.isEmpty()) {
+                                        log.warn("No card count data found. shopId={}, fpsId={}",
+                                                        shop.getId(), shopId);
+                                        continue;
+                                }
+
+                                JsonNode cardContent = content.get(0);
+                                Integer riceCards1Count = cardContent.path("Rice Cards_1").asInt(0);
+                                Integer aayCards8Count = cardContent.path("AAY Cards_8").asInt(0);
+                                Integer sugarCards2Count = cardContent.path("Sugar Cards_2").asInt(0);
+                                Integer noCommodityCards5Count = cardContent.path("No Commodity Cards_5").asInt(0);
+                                Integer policeCards3Count = cardContent.path("Police Cards_3").asInt(0);
+
+                                List<List<Integer>> allCardCountList = List.of(
+                                                List.of(riceCards1Count, 1),
+                                                List.of(aayCards8Count, 8),
+                                                List.of(sugarCards2Count, 2),
+                                                List.of(noCommodityCards5Count, 5),
+                                                List.of(policeCards3Count, 3));
+
+                                // =====================================================
+                                // 2. GET ADDITIONAL BENEFICIARY DATA
+                                // =====================================================
+
+                                Map<String, JsonNode> beneficiaryAdditionalData = new HashMap<>();
+                                String shopBillListResponse = pdsReportClient.getBillList(0, 10000, shopId);
+                                JsonNode shopBillListObject = objectMapper.readTree(shopBillListResponse);
+                                JsonNode billDtoList = shopBillListObject.path("billDtoList");
+
+                                if (billDtoList.isArray()) {
+                                        for (JsonNode billNode : billDtoList) {
+                                                JsonNode beneficiaryDtoNode = billNode.get("beneficiaryDto");
+                                                String ufc = getTextValue(beneficiaryDtoNode, "ufc");
+                                                if (ufc == null) {
+                                                        continue;
+                                                }
+                                                beneficiaryAdditionalData.put(ufc, beneficiaryDtoNode);
+                                        }
+                                }
+
+                                log.info("Additional beneficiary data loaded. shopId={}, count={}",
+                                                shop.getId(), beneficiaryAdditionalData.size());
+
+                                // =====================================================
+                                // 3. GET BENEFICIARIES
+                                // =====================================================
+
+                                for (List<Integer> cardCount : allCardCountList) {
+                                        Integer count = cardCount.get(0);
+                                        Integer cardTypeGroupId = cardCount.get(1);
+
+                                        log.info("Processing card group. shopId={}, cardTypeGroupId={}, count={}",
+                                                        shop.getId(), cardTypeGroupId, count);
+
+                                        for (int page = 0; page < count; page++) {
+
+                                                String beneficiaryResponse = pdsReportClient.getBenefs(page, 1, shopId, cardTypeGroupId);
+                                                JsonNode beneficiaryObject = objectMapper.readTree(beneficiaryResponse);
+                                                JsonNode beneficiaryList = beneficiaryObject.path("beneficiaryList");
+
+                                                if (!beneficiaryList.isArray() || beneficiaryList.isEmpty()) {
+
+                                                        log.debug("No beneficiary returned. shopId={}, page={}, cardTypeGroupId={}",
+                                                                        shop.getId(), page, cardTypeGroupId);
+                                                        continue;
+                                                }
+
+                                                // Because page size is 1
+                                                JsonNode beneficiaryNode = beneficiaryList.get(0);
+
+                                                // =================================================
+                                                // 4. CORE BENEFICIARY DATA
+                                                // =================================================
+
+                                                Long tnPdsId = getLongValue(beneficiaryNode, "id");
+                                                String ufcNumber = getTextValue(beneficiaryNode, "ufc");
+
+                                                if (tnPdsId == null || ufcNumber == null) {
+
+                                                        log.warn("Skipping beneficiary because ID/UFC is missing. shopId={}, page={}, cardTypeGroupId={}",
+                                                                        shop.getId(), page, cardTypeGroupId);
+                                                        continue;
+                                                }
+
+                                                String name = getTextValue(beneficiaryNode, "name");
+                                                String localName = getTextValue(beneficiaryNode, "localName");
+                                                String gender = getTextValue(beneficiaryNode, "gender");
+                                                String oldRationNumber = getTextValue(beneficiaryNode, "oldRationNumber");
+                                                Long villageSourceId = getLongValue(beneficiaryNode, "villageId");
+                                                String villageName = getTextValue(beneficiaryNode, "village");
+                                                Integer numOfAdults = getIntegerValue(beneficiaryNode,"numOfAdults");
+                                                Integer numOfChild = getIntegerValue(beneficiaryNode,"numOfChild");
+                                                Integer numOfCylinder = getIntegerValue(beneficiaryNode,"numOfCylinder");
+
+                                                Boolean isFamilyHeadAadharNumberRegistered = beneficiaryNode.get("isFamilyHeadAadharNumberRegistered").asBoolean();
+                                                Boolean isMobileNumberRegistered = beneficiaryNode.get("isMobileNumberRegistered").asBoolean();
+                                                
+
+                                                // =================================================
+                                                // 5. BENEFICIARY ADDRESS
+                                                // =================================================
+
+                                                JsonNode addressNode = beneficiaryNode.path("beneficiaryAddressDto");
+
+                                                String addressLine1 = null;
+                                                String addressLine2 = null;
+                                                String addressLine3 = null;
+                                                Integer pinCode = null;
+                                                String fatherOrSpouseName = null;
+                                                String familyHeadName = null;
+
+                                                if (!addressNode.isMissingNode() && !addressNode.isNull()) {
+                                                        addressLine1 = getTextValue(addressNode, "addressLine1");
+                                                        addressLine2 = getTextValue(addressNode,"addressLine2");
+                                                        addressLine3 = getTextValue(addressNode,"addressLine3");
+                                                        pinCode = getIntegerValue(addressNode,"pincode");
+                                                        fatherOrSpouseName = getTextValue(addressNode,"fatherOrSpouseName");
+                                                        familyHeadName = getTextValue(addressNode,"familyHeadName");
+                                                }
+
+                                                // =================================================
+                                                // 6. CARD TYPE
+                                                // =================================================
+
+                                                JsonNode cardTypeNode = beneficiaryNode.path("cardTypeDto");
+                                                CardType cardType = null;
+
+                                                if (!cardTypeNode.isMissingNode() && !cardTypeNode.isNull()) {
+
+                                                        Integer cardTypeId = getIntegerValue(cardTypeNode,"id");
+                                                        String description = getTextValue(cardTypeNode,"description");
+                                                        String localDescription = getTextValue(cardTypeNode,"ldescription");
+
+                                                }
+
+                                                // =================================================
+                                                // 7. ADDITIONAL DATA FROM BILL API
+                                                // =================================================
+
+                                                JsonNode additionalData = beneficiaryAdditionalData.get(ufcNumber);
+
+                                                String mobileNumber = null;
+                                                String encryptedUfc = null;
+                                                String familyHeadAadharEncrypted = null;
+
+                                                if (additionalData != null) {
+
+                                                        mobileNumber = getTextValue(additionalData, "mobileNumber");
+                                                        encryptedUfc = getTextValue(additionalData, "encryptedUfc");
+                                                        familyHeadAadharEncrypted = getTextValue(additionalData, "familyHeadAadharNumber");
+                                                }
+
+                                                // =================================================
+                                                // 8. VILLAGE
+                                                // =================================================
+
+                                                Village residentialVillage = null;
+                                                if (villageSourceId != null) {
+                                                        residentialVillage = villageRepository
+                                                                        .findBySourceId(villageSourceId)
+                                                                        .orElse(null);
+                                                        if (residentialVillage == null) {
+                                                                log.warn("Village not found for beneficiary. " +
+                                                                                                "beneficiaryId={}, ufc={}, villageId={}, villageName={}",
+                                                                                tnPdsId, ufcNumber,
+                                                                                villageSourceId, villageName);
+                                                        }
+                                                }
+
+                                                // =================================================
+                                                // 9. UPSERT BENEFICIARY
+                                                // =================================================
+
+                                                Optional<Beneficiary> existingBeneficiary = beneficiaryRepository
+                                                                .findByTnPdsId(tnPdsId);
+
+                                                Beneficiary beneficiary;
+                                                boolean beneficiaryExists;
+
+                                                if (existingBeneficiary.isPresent()) {
+
+                                                        beneficiary = existingBeneficiary.get();
+                                                        beneficiaryExists = true;
+
+                                                } else {
+
+                                                        beneficiary = new Beneficiary();
+                                                        beneficiaryExists = false;
+                                                }
+
+                                                beneficiary.setTnPdsId(tnPdsId);
+                                                beneficiary.setUfcNumber(ufcNumber);
+                                                beneficiary.setEncryptedUfc(encryptedUfc);
+                                                beneficiary.setOldRationNumber(oldRationNumber);
+                                                beneficiary.setName(name);
+                                                beneficiary.setLocalName(localName);
+                                                beneficiary.setFamilyHeadName(familyHeadName);
+                                                beneficiary.setFatherOrSpouseName(fatherOrSpouseName);
+                                                beneficiary.setGender(gender);
+                                                beneficiary.setMobileNumber(mobileNumber);
+                                                beneficiary.setFamilyHeadAadharEncrypted(familyHeadAadharEncrypted);
+                                                beneficiary.setAddressLine1(addressLine1);
+                                                beneficiary.setAddressLine2(addressLine2);
+                                                beneficiary.setAddressLine3(addressLine3);
+                                                beneficiary.setPinCode(pinCode);
+                                                beneficiary.setNumOfAdults(numOfAdults != null ? numOfAdults : 0);
+                                                beneficiary.setNumOfChild(numOfChild != null ? numOfChild : 0);
+                                                beneficiary.setNumOfCylinder(numOfCylinder != null ? numOfCylinder : 0);
+                                                beneficiary.setIsActive(true);
+                                                beneficiary.setIsMobileRegistered(isMobileNumberRegistered);
+                                                beneficiary.setIsAadharRegistered(isFamilyHeadAadharNumberRegistered);
+
+                                                beneficiary.setResidentialVillage(residentialVillage);
+                                                beneficiary.setAssignedShop(shop);
+
+                                                // Set cardType here once CardType lookup is implemented.
+
+                                                Beneficiary savedBeneficiary = beneficiaryRepository.save(beneficiary);
+                                                if (beneficiaryExists) {
+                                                        updatedBeneficiaries++;
+                                                } else {
+                                                        createdBeneficiaries++;
+                                                }
+                                                log.debug("Beneficiary synchronized. id={}, tnPdsId={}, ufc={}, shopId={}, villageId={}",
+                                                                savedBeneficiary.getId(),savedBeneficiary.getTnPdsId(),
+                                                                savedBeneficiary.getUfcNumber(),shop.getId(),
+                                                                residentialVillage != null ? residentialVillage.getId() : null);
+                                        }
+                                }
+
+                                processedShops++;
+
+                                log.info("Beneficiary synchronization completed for shop. shopId={}, fpsId={}",
+                                                shop.getId(),shopId);
+
+                        } catch (IOException | InterruptedException e) {
+
+                                log.error(
+                                                "Failed to synchronize beneficiaries. shopId={}, fpsId={}",
+                                                shop.getId(),
+                                                shopId,
+                                                e);
+                        }
+                }
+
+                log.info("============================================================");
+                log.info("Beneficiary synchronization completed");
+                log.info("Total shops        : {}", totalShops);
+                log.info("Processed shops    : {}", processedShops);
+                log.info("Skipped shops      : {}", skippedShops);
+                log.info("Created            : {}", createdBeneficiaries);
+                log.info("Updated            : {}", updatedBeneficiaries);
+                log.info("============================================================");
+        }
+
         private LocalTime parseLocalTime(String value) {
 
                 if (value == null || value.isBlank()) {
@@ -1402,4 +1712,9 @@ public class PdsSyncService {
                 }
         }
 
+
+
+        public void testMethod() throws IOException, InterruptedException{
+                pdsReportClient.getStateListReportObj();
+        }
 }

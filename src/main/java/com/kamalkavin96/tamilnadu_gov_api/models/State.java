@@ -23,7 +23,7 @@ public class State {
     private Long id;
 
     @Column(name = "source_id", unique = true, nullable = false, length = 50)
-    private String sourceId;
+    private Long sourceId;
 
     @Column(name = "name", unique = true, nullable = false, length = 100)
     private String name;
