@@ -901,6 +901,10 @@ public class PdsSyncService {
 
                 for (Shop shop : shops) {
 
+                        if (shop.getId()<345) {
+                                continue;
+                        }
+
                         String shopSourceId = shop.getSourceId();
                         String shopCode = shop.getShopCode();
 
