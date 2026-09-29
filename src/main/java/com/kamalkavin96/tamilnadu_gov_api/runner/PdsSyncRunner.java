@@ -30,11 +30,11 @@ public class PdsSyncRunner implements CommandLineRunner {
         // pdsSyncService.syncDistricts();
         // pdsSyncService.syncTaluks();
 
-        pdsSyncService.syncShops();
+        // pdsSyncService.syncShops();
 
-        // pdsSyncService.syncShopInfo();
+        pdsSyncService.syncShopInfo();
 
-        pdsSyncService.syncBeneficiry();
+        // pdsSyncService.syncBeneficiry();
 
         log.info(LOG_SEPARATOR);
         log.info("Tamil Nadu PDS synchronization completed");

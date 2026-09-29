@@ -764,9 +764,9 @@ public class PdsSyncService {
 
                         for (Taluk taluk : taluks) {
 
-                                if (taluk.getId()<144) {
-                                        continue;
-                                }
+                                // if (taluk.getId()!=97) {
+                                //         continue;
+                                // }
 
                                 String talukSourceId = taluk.getSourceId();
                                 String talukName = taluk.getName();
