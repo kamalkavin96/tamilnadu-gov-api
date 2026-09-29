@@ -901,7 +901,7 @@ public class PdsSyncService {
 
                 for (Shop shop : shops) {
 
-                        if (shop.getId()<4156) {
+                        if (shop.getId()<10000) {
                                 continue;
                         }
 
