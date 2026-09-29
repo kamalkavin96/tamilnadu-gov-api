@@ -19,8 +19,6 @@ public class PdsSyncRunner implements CommandLineRunner {
 
     private final PdsSyncService pdsSyncService;
 
-    private final StateService stateService;
-
     @Override
     public void run(String... args) throws Exception {
 
@@ -28,21 +26,17 @@ public class PdsSyncRunner implements CommandLineRunner {
         log.info("Starting Tamil Nadu PDS data synchronization");
         log.info(LOG_SEPARATOR);
 
-        // pdsSyncService.syncStates();
-        // pdsSyncService.syncDistricts();
-        // pdsSyncService.syncTaluks();
+        pdsSyncService.syncStates();
+        pdsSyncService.syncDistricts();
+        pdsSyncService.syncTaluks();
 
-        // pdsSyncService.syncShops();
+        pdsSyncService.syncShops();
 
-        // pdsSyncService.syncShopInfo();
+        pdsSyncService.syncShopInfo();
 
-        // pdsSyncService.syncBeneficiry();
-
-
-        // stateService.create(1L, "Tamilnadu");
+        pdsSyncService.syncBeneficiry();
 
 
-        pdsSyncService.testMethod();
 
 
 

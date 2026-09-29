@@ -1,4 +1,4 @@
-package com.kamalkavin96.tamilnadu_gov_api.dto.app;
+package com.kamalkavin96.tamilnadu_gov_api.dto.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -10,10 +10,14 @@ import lombok.NoArgsConstructor;
 @Data 
 @AllArgsConstructor 
 @NoArgsConstructor 
-public class ProductDto {
+public class BillItemDto {
 
-    private String code;
+    private Double cost;
+    private String lname;
+    private String lproductUnit;
     private String name;
-    private String lproductName;
-    
+    private String product_unit;
+    private String quantity;
+
+
 }

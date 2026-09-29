@@ -1,4 +1,4 @@
-package com.kamalkavin96.tamilnadu_gov_api.dto.app;
+package com.kamalkavin96.tamilnadu_gov_api.dto.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -7,16 +7,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Data 
-@AllArgsConstructor 
-@NoArgsConstructor 
-public class DistrictMetricsDto {
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class ShopDto {
+
+    private Long fpsId;
+    private String fpsCode;
+    private String fpsName;
 
     private Long noOfAadhaarRegistered;
-    private Long noOfCards;
-    private Long noOfFpsStore;
-    private Long noOfMembers;
     private Long noOfMobileNumberRegistered;
-    private Long noOfGodowns;
-    
+    private Long numberOfBeneficiaries;
+    private Long numberOfCards;
+
 }

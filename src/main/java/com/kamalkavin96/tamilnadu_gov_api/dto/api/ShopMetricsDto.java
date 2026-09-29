@@ -1,4 +1,4 @@
-package com.kamalkavin96.tamilnadu_gov_api.dto.app;
+package com.kamalkavin96.tamilnadu_gov_api.dto.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -10,17 +10,15 @@ import lombok.NoArgsConstructor;
 @Data 
 @AllArgsConstructor 
 @NoArgsConstructor 
-public class TalukDto {
+public class ShopMetricsDto {
 
-    private Long talukId;
-    private String talukName;
-    private String ltalukName;
-    
-
-    private Long noOfAadhaarRegistered;
-    private Long noOfMobileNumberRegistered;
+    private Long noOfAadhaarNoRegistered;
+    private Long noOfMobileNoRegistered;
     private Long numberOfBeneficiaries;
     private Long numberOfCards;
-    private Long numberOfFps;
+    private String onlineStatus;
+    private Long openServiceReqTktCnt;
+    private Long openTktCount;
+
 
 }

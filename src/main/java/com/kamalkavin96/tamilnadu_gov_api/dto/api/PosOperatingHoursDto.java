@@ -1,4 +1,4 @@
-package com.kamalkavin96.tamilnadu_gov_api.dto.app;
+package com.kamalkavin96.tamilnadu_gov_api.dto.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -8,13 +8,13 @@ import lombok.NoArgsConstructor;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data
-@AllArgsConstructor 
 @NoArgsConstructor
-public class ShopOperatingHoursDto {
+@AllArgsConstructor
+public class PosOperatingHoursDto {
 
     private String firstSessionOpeningTime;
     private String firstSessionClosingTime;
-    private String secondSessionClosingTime;
     private String secondSessionOpeningTime;
+    private String secondSessionClosingTime;
 
 }

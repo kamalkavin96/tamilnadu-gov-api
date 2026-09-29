@@ -1,4 +1,4 @@
-package com.kamalkavin96.tamilnadu_gov_api.dto.app;
+package com.kamalkavin96.tamilnadu_gov_api.dto.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -10,11 +10,10 @@ import lombok.NoArgsConstructor;
 @Data 
 @AllArgsConstructor 
 @NoArgsConstructor 
-public class BeneficiaryCardTypeDto {
+public class BeneficiaryCardTypeGroupDto {
 
-    private BeneficiaryCardTypeGroupDto cardTypeGroupDto;
-    private String description;
-    private String ldescription;
-    private String type;
+    private String groupName;
     private Long id;
-}   
+    private Boolean isDeleted;
+    private String lgroupName;
+}
