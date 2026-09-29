@@ -901,7 +901,7 @@ public class PdsSyncService {
 
                 for (Shop shop : shops) {
 
-                        if (shop.getId()<345) {
+                        if (shop.getId()<4156) {
                                 continue;
                         }
 
@@ -1225,11 +1225,11 @@ public class PdsSyncService {
                         /*
                          * ShopInfo has nullable=false for these fields.
                          */
-                        if (addressLine1 == null
-                                        || addressLine1.isBlank()) {
+                        // if (addressLine1 == null
+                        //                 || addressLine1.isBlank()) {
 
-                                addressLine1 = "Unknown";
-                        }
+                        //         addressLine1 = "Unknown";
+                        // }
 
                         if (pinCode == null) {
                                 pinCode = 0;
@@ -1265,10 +1265,12 @@ public class PdsSyncService {
                         String secondSessionOpeningTime = posOperatingHoursDto.get("secondSessionOpeningTime").asText();
                         String secondSessionClosingTime = posOperatingHoursDto.get("secondSessionClosingTime").asText();
 
-                        shopInfo.setFirstSessionOpen(LocalTime.parse(firstSessionOpeningTime));
-                        shopInfo.setFirstSessionClose(LocalTime.parse(firstSessionClosingTime));
-                        shopInfo.setSecondSessionOpen(LocalTime.parse(secondSessionOpeningTime));
-                        shopInfo.setSecondSessionClose(LocalTime.parse(secondSessionClosingTime));
+                        
+
+                        shopInfo.setFirstSessionOpen(parseLocalTime(firstSessionOpeningTime));
+                        shopInfo.setFirstSessionClose(parseLocalTime(firstSessionClosingTime));
+                        shopInfo.setSecondSessionOpen(parseLocalTime(secondSessionOpeningTime));
+                        shopInfo.setSecondSessionClose(parseLocalTime(secondSessionClosingTime));
 
                         /*
                          * ============================================================

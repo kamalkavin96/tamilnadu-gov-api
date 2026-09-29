@@ -58,7 +58,7 @@ public class ShopInfo {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Village village;
 
-    @Column(name = "address_line_1", nullable = false, length = 255)
+    @Column(name = "address_line_1", length = 255)
     private String addressLine1;
 
     @Column(name = "address_line_2", length = 255)
