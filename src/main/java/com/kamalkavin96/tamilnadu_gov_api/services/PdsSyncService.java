@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +49,7 @@ import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.TalukRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.VillageRepository;
 
+import io.swagger.v3.core.util.Json;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -758,7 +760,13 @@ public class PdsSyncService {
                                 continue;
                         }
 
+                        
+
                         for (Taluk taluk : taluks) {
+
+                                if (taluk.getId()<78) {
+                                        continue;
+                                }
 
                                 String talukSourceId = taluk.getSourceId();
                                 String talukName = taluk.getName();
@@ -775,6 +783,8 @@ public class PdsSyncService {
                                                         talukSourceId, talukName);
                                         continue;
                                 }
+
+                                List<Shop> shopListBulk = new ArrayList<>();
 
                                 for (JsonNode shopNode : shopList) {
 
@@ -833,13 +843,23 @@ public class PdsSyncService {
                                         shop.setShopCode(shopCode);
                                         shop.setShopname(shopName);
                                         shop.setTaluk(taluk);
-                                        Shop savedShop = shopRepository.save(shop);
 
-                                        log.info("Shop synchronized. id={}, sourceId={}, shopCode={}, shopName={}, talukId={}, talukName={}",
-                                                        savedShop.getId(), savedShop.getSourceId(),
-                                                        savedShop.getShopCode(),
-                                                        savedShop.getShopname(), taluk.getId(), taluk.getName());
+
+                                        shopListBulk.add(shop);
+                                        log.info("added");
+                                        // Shop savedShop = shopRepository.save(shop);
+
+                                        // log.info("Shop synchronized. id={}, sourceId={}, shopCode={}, shopName={}, talukId={}, talukName={}",
+                                        //                 savedShop.getId(), savedShop.getSourceId(),
+                                        //                 savedShop.getShopCode(),
+                                        //                 savedShop.getShopname(), taluk.getId(), taluk.getName());
                                 }
+
+                                List<Shop> savedShopList = shopRepository.saveAll(shopListBulk);
+
+                                log.info("bulk save completed: {}", savedShopList.toString());
+
+
                         }
                 }
 
@@ -941,6 +961,7 @@ public class PdsSyncService {
                         JsonNode shopObject = objectMapper.readTree(response);
 
                         JsonNode fpsStoreDto = shopObject.path("fpsStoreDto");
+                        JsonNode posOperatingHoursDto = shopObject.path("posOperatingHoursDto");
 
                         // =====================================================
                         // AGENCY
@@ -1231,6 +1252,19 @@ public class PdsSyncService {
 
                         shopInfo.setLatitude(latitude);
                         shopInfo.setLongitude(longitude);
+
+
+
+
+                        String firstSessionOpeningTime = posOperatingHoursDto.get("firstSessionOpeningTime").asText();
+                        String firstSessionClosingTime = posOperatingHoursDto.get("firstSessionClosingTime").asText();
+                        String secondSessionOpeningTime = posOperatingHoursDto.get("secondSessionOpeningTime").asText();
+                        String secondSessionClosingTime = posOperatingHoursDto.get("secondSessionClosingTime").asText();
+
+                        shopInfo.setFirstSessionOpen(LocalTime.parse(firstSessionOpeningTime));
+                        shopInfo.setFirstSessionClose(LocalTime.parse(firstSessionClosingTime));
+                        shopInfo.setSecondSessionOpen(LocalTime.parse(secondSessionOpeningTime));
+                        shopInfo.setSecondSessionClose(LocalTime.parse(secondSessionClosingTime));
 
                         /*
                          * ============================================================
