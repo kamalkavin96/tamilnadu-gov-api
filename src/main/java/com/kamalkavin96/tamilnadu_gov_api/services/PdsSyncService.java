@@ -764,7 +764,7 @@ public class PdsSyncService {
 
                         for (Taluk taluk : taluks) {
 
-                                if (taluk.getId()<78) {
+                                if (taluk.getId()<144) {
                                         continue;
                                 }
 
