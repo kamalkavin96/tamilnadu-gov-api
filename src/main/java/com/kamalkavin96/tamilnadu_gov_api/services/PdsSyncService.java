@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
+import com.kamalkavin96.tamilnadu_gov_api.dto.app.BeneficiaryReportDto;
+import com.kamalkavin96.tamilnadu_gov_api.dto.app.BillDetailReportDto;
+import com.kamalkavin96.tamilnadu_gov_api.dto.app.FpsLocationDetailsReportDto;
 import com.kamalkavin96.tamilnadu_gov_api.models.Agency;
 import com.kamalkavin96.tamilnadu_gov_api.models.Beneficiary;
 import com.kamalkavin96.tamilnadu_gov_api.models.CardType;
@@ -1715,6 +1718,7 @@ public class PdsSyncService {
 
 
         public void testMethod() throws IOException, InterruptedException{
-                pdsReportClient.getStateListReportObj();
+                List<BillDetailReportDto> data = pdsReportClient.getBillListObj(0, 10, 31650l);
+                System.out.println(data);
         }
 }
