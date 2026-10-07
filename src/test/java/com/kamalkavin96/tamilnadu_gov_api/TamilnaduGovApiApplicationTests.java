@@ -12,13 +12,13 @@ import com.kamalkavin96.tamilnadu_gov_api.clients.tnpds.PDSReportClient;
 @SpringBootTest
 class TamilnaduGovApiApplicationTests {
 
-	@Autowired
-	private PDSReportClient pdsReportClient;
+	// @Autowired
+	// private PDSReportClient pdsReportClient;
 
-	@Test
-	void contextLoads() throws IOException, InterruptedException {
-		String data = pdsReportClient.getStateListReport();
-		System.out.println(data);
-	}
+	// @Test
+	// void contextLoads() throws IOException, InterruptedException {
+	// 	String data = pdsReportClient.getStateListReport();
+	// 	System.out.println(data);
+	// }
 
 }

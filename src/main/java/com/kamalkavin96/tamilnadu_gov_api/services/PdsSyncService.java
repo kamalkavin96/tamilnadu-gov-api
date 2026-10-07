@@ -1,6 +1,8 @@
 package com.kamalkavin96.tamilnadu_gov_api.services;
 
 import com.kamalkavin96.tamilnadu_gov_api.repositories.StateMetricsRepository;
+
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ import com.kamalkavin96.tamilnadu_gov_api.models.TalukMetrics;
 import com.kamalkavin96.tamilnadu_gov_api.models.Village;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.AgencyRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.BeneficiaryRepository;
+import com.kamalkavin96.tamilnadu_gov_api.repositories.CardTypeRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictMetricsRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.DistrictRepository;
 import com.kamalkavin96.tamilnadu_gov_api.repositories.ShopInchargeRepository;
@@ -75,6 +78,7 @@ public class PdsSyncService {
         private final ShopInchargeRepository shopInchargeRepository;
         private final ShopMetricsRepository shopMetricsRepository;
         private final AgencyRepository agencyRepository;
+        private final CardTypeRepository cardTypeRepository;
 
         private final StateService stateService;
         private final DistrictService districtService;
@@ -901,7 +905,7 @@ public class PdsSyncService {
 
                 for (Shop shop : shops) {
 
-                        if (shop.getId()<10000) {
+                        if (shop.getId()<15850) {
                                 continue;
                         }
 
@@ -1365,7 +1369,14 @@ public class PdsSyncService {
                 int createdBeneficiaries = 0;
                 int updatedBeneficiaries = 0;
 
+                Long lastShopId = beneficiaryRepository.findLastBeneficryShopId();
+
                 for (Shop shop : shops) {
+
+
+                        if (shop.getId()<lastShopId) {
+                                continue;
+                        }
 
                         String shopSourceId = shop.getSourceId();
 
@@ -1526,11 +1537,29 @@ public class PdsSyncService {
 
                                                 if (!cardTypeNode.isMissingNode() && !cardTypeNode.isNull()) {
 
-                                                        Integer cardTypeId = getIntegerValue(cardTypeNode,"id");
+                                                        Long cardTypeId = getLongValue(cardTypeNode,"id");
                                                         String description = getTextValue(cardTypeNode,"description");
                                                         String localDescription = getTextValue(cardTypeNode,"ldescription");
+                                                        String groupName = getTextValue(cardTypeNode.get("cardTypeGroupDto"),"groupName");
+                                                        String lgroupName = getTextValue(cardTypeNode.get("cardTypeGroupDto"),"lgroupName");
 
+                                                        cardType = cardTypeRepository.findBySourceId(cardTypeId)
+                                                                .orElseGet(() -> {
+
+                                                                        CardType newCard = new CardType();
+
+                                                                        newCard.setSourceId(cardTypeId);
+                                                                        newCard.setDescription(description);
+                                                                        newCard.setLocalDescription(localDescription);
+                                                                        newCard.setGroupName(groupName);
+                                                                        newCard.setLocalGroupName(lgroupName);
+                                                                        // newCard.setTypeCode("");
+
+                                                                        return cardTypeRepository.save(newCard);
+                                                                });
                                                 }
+
+
 
                                                 // =================================================
                                                 // 7. ADDITIONAL DATA FROM BILL API
@@ -1608,6 +1637,7 @@ public class PdsSyncService {
                                                 beneficiary.setIsActive(true);
                                                 beneficiary.setIsMobileRegistered(isMobileNumberRegistered);
                                                 beneficiary.setIsAadharRegistered(isFamilyHeadAadharNumberRegistered);
+                                                beneficiary.setCardType(cardType);
 
                                                 beneficiary.setResidentialVillage(residentialVillage);
                                                 beneficiary.setAssignedShop(shop);
